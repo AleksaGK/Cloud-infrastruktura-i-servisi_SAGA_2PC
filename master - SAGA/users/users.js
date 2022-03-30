@@ -34,11 +34,84 @@ app.get("/users/:id", async (req, res) => {
   }
 });
 
-app.post("/users/:id/booking/:hotel/:car/:flight", (req, res) => {});
+app.post("/users/:id/booking/:hotel/:car/:flight", (req, res) => {
+  const UserId = req.params.id;
+  const HotelId = req.params.hotel;
+  const CarId = req.params.car;
+  const FlightId = req.params.flight;
 
-function wait(purpose) {}
+  const booking = {
+    hotel: {},
+    car: {},
+    flight: {},
+    pricePerDay: 0,
+  };
 
-async function deleteLastBooking() {}
+  axios
+    .post("http://localhost:4444/users", null, {
+      params: {
+        UserId,
+        HotelId,
+        CarId,
+        FlightId,
+      },
+    })
+    .then((response) => {
+      console.log(response.status);
+    })
+    .catch((err) => console.warn(err));
+  console.log("--------------");
+
+  axios
+    .get(`http://localhost:5555/hotels/${HotelId}`)
+    .then(async (hotelResponse) => {
+      booking.hotel = hotelResponse.data[0];
+      return wait("hotel");
+    })
+    .then((promiseResult) => {
+      if (promiseResult) {
+        return axios.get(`http://localhost:4545/cars/${CarId}`);
+      }
+    })
+    .then((carResponse) => {
+      booking.car = carResponse.data;
+      booking.pricePerDay =
+        booking.car.rentalPricePerDay + booking.hotel.pricePerDay;
+      return wait("car");
+    })
+    .then((promiseResult) => {
+      if (promiseResult) res.send(booking);
+    })
+    .catch((err) => {
+      res.send(err.message);
+    })
+    .finally(() => (bookings = []));
+});
+
+function wait(purpose) {
+  return new Promise(function (resolve, reject) {
+    setTimeout(() => {
+      bookings.push(purpose);
+      if (Math.random() < 0.5) {
+        deleteLastBooking();
+        bookings
+          .slice()
+          .reverse()
+          .forEach((purpose) => console.log(`${purpose} aborted!`));
+        reject({ message: "ABORT " + bookings.join(" and ") });
+      } else {
+        console.log(`Succesfully booked ${purpose}`);
+        resolve(true);
+      }
+    }, 1000);
+  });
+}
+
+async function deleteLastBooking() {
+  const res = await axios.get(`http://localhost:4444/users`);
+  const id = res.data[res.data.length - 1].id;
+  axios.delete(`http://localhost:4444/users/${id}`);
+}
 
 app.delete("/users/:id", async (req, res) => {
   try {

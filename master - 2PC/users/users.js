@@ -36,7 +36,53 @@ app.get("/users/:id", async (req, res) => {
   }
 });
 
-app.post("/users/:id/booking/:hotel/:car/:flight", async (req, res) => {});
+app.post("/users/:id/booking/:hotel/:car/:flight", async (req, res) => {
+  const UserId = req.params.id;
+  const HotelId = req.params.hotel;
+  const CarId = req.params.car;
+  const FlightId = req.params.flight;
+  var booking = {
+    hotel: {},
+    car: {},
+    flight: {},
+    pricePerDay: 0,
+  };
+  console.log("---------------------");
+  axios
+    .put(`http://localhost:5555/hotels/${HotelId}?prepared=true`)
+    .then((hotelResponse) => {
+      if (hotelResponse.data) {
+        return axios.put(`http://127.0.0.1:4545/cars/${CarId}?prepared=true`);
+      } else {
+        throw new Error("This hotel is waitng to be processed");
+      }
+    })
+    .then((carResult) => {
+      if (carResult.data) {
+        return axios.post(`http://localhost:4444/users`, null, {
+          params: { UserId, HotelId, CarId, FlightId },
+        });
+      } else {
+        throw new Error("This car is waitng to be processed");
+      }
+    })
+    .then(() => {
+      return axios.get(`http://127.0.0.1:4545/cars/${CarId}`);
+    })
+    .then((car) => {
+      booking.car = car.data;
+      return axios.get(`http://localhost:5555/hotels/${HotelId}`);
+    })
+    .then((hotel) => {
+      booking.hotel = hotel.data[0];
+      booking.pricePerDay =
+        booking.car.rentalPricePerDay + booking.hotel.pricePerDay;
+      res.send(booking);
+    })
+    .catch((err) => {
+      res.send(err.message);
+    });
+});
 
 app.delete("/users/:id", async (req, res) => {
   try {
